@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	_ "github.com/jackc/pgconn"
@@ -25,6 +26,9 @@ const (
 var counts int64
 
 func main() {
+	if os.Getenv("DSN") == "" {
+		os.Setenv("DSN", "host=localhost port=5433 user=postgres password=password dbname=finn sslmode=disable timezone=UTC connect_timeout=5")
+	}
 	log.Println("Starting transactions service")
 
 	conn := connectToDB()
@@ -47,7 +51,7 @@ func main() {
 }
 
 func connectToDB() *sql.DB {
-	dsn := "host=postgres port=5432 user=postgres password=password dbname=finn sslmode=disable timezone=UTC connect_timeout=5"
+	dsn := os.Getenv("DSN")
 
 	for {
 		connection, err := openDB(dsn)
