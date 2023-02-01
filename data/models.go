@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log"
 
 	// "errors"
 
@@ -52,23 +51,21 @@ func (t *Transaction) GetUserBalance(email string) (float32, error) {
 	return totalBalance, nil
 }
 
-func (t *Transaction) UpdateBalance(username string, transactionAmount float32) (float32, error) {
+func (t *Transaction) UpdateBalance(username string, transactionAmount float32, transactionName string, transactionDescription string) (float32, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
-	query := `insert into mrkrabs.Transactions (Username, TransactionAmount) values
-	($1,$2)`
+	query := `insert into mrkrabs.Transactions (Username, TransactionAmount, TransactionName, TransactionDescription) values
+	($1,$2,$3,$4)`
 
 	balance, err := t.GetUserBalance(username)
 	if err != nil && err.Error() != "sql: no rows in result set" {
 		return 0, err
 	}
-
-	log.Println(balance + transactionAmount)
 	if (balance + transactionAmount) < 0 {
 		return 0, errors.New("error. can not decrement balance below zero")
 	}
 
-	_, err = db.ExecContext(ctx, query, username, transactionAmount)
+	_, err = db.ExecContext(ctx, query, username, transactionAmount, transactionName, transactionDescription)
 	if err != nil {
 		return 0, err
 	}

@@ -30,15 +30,16 @@ func (app *Config) UpdateBalance(w http.ResponseWriter, r *http.Request) {
 	u := chi.URLParam(r, "user")
 	var requestPayload struct {
 		// Username          string  `json:"username"`
-		TransactionAmount float32 `json:"transactionAmount"`
+		TransactionAmount      float32 `json:"transactionAmount"`
+		TransactionName        string  `json:"transactionName"`
+		TransactionDescription string  `json:"transactionDescription"`
 	}
 	err := app.readJSON(w, r, &requestPayload)
 	if err != nil {
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
 	}
-
-	balance, err := app.Models.Transaction.UpdateBalance(u, requestPayload.TransactionAmount)
+	balance, err := app.Models.Transaction.UpdateBalance(u, requestPayload.TransactionAmount, requestPayload.TransactionName, requestPayload.TransactionDescription)
 	if err != nil {
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
