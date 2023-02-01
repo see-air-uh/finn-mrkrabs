@@ -51,3 +51,19 @@ func (app *Config) UpdateBalance(w http.ResponseWriter, r *http.Request) {
 	}
 	app.writeJSON(w, http.StatusAccepted, payload)
 }
+func (app *Config) GetAllTransactions(w http.ResponseWriter, r *http.Request) {
+	u := chi.URLParam(r, "user")
+
+	transactions, err := app.Models.Transaction.GetAllTransactions(u)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	payload := jsonResponse{
+		Error:   false,
+		Message: fmt.Sprintf("Retrieved transaction data for user %s", u),
+		Data:    transactions,
+	}
+	app.writeJSON(w, http.StatusAccepted, payload)
+
+}

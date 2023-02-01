@@ -27,9 +27,11 @@ type Models struct {
 }
 
 type Transaction struct {
-	TransactionID     int     `json:"-"`
-	UserID            string  `json:"id"`
-	TransactionAmount float32 `json:"transactionAmount"`
+	TransactionID          int     `json:"-"`
+	UserID                 string  `json:"id"`
+	TransactionAmount      float32 `json:"transactionAmount"`
+	TransactionName        string  `json:"transactionName"`
+	TransactionDescription string  `json:"transactionDescription"`
 }
 
 func (t *Transaction) GetUserBalance(email string) (float32, error) {
@@ -71,4 +73,29 @@ func (t *Transaction) UpdateBalance(username string, transactionAmount float32, 
 	}
 
 	return balance + transactionAmount, nil
+}
+
+func (t *Transaction) GetAllTransactions(username string) ([]Transaction, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `select TransactionID, username, transactionamount, transactionname, transactiondescription from mrkrabs.Transactions where Username = $1`
+
+	rows, err := db.QueryContext(ctx, query, username)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var transactions []Transaction
+	for rows.Next() {
+		var trans Transaction
+		if err := rows.Scan(&trans.TransactionID, &trans.UserID, &trans.TransactionAmount, &trans.TransactionName, &trans.TransactionDescription); err != nil {
+			return transactions, err
+		}
+		transactions = append(transactions, trans)
+	}
+	if err = rows.Err(); err != nil {
+		return transactions, err
+	}
+	return transactions, nil
 }
