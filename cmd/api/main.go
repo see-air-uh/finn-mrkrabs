@@ -26,12 +26,9 @@ const (
 var counts int64
 
 func main() {
-	log.Println("Printing out DSN")
 	if os.Getenv("DSN") == "" {
 		os.Setenv("DSN", "host=localhost port=5433 user=postgres password=password dbname=finn sslmode=disable timezone=UTC connect_timeout=5")
 	}
-	log.Println(os.Getenv("DSN"))
-	log.Println("Printing out DSN")
 	log.Println("Starting transactions service")
 
 	conn := connectToDB()
