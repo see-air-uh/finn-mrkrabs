@@ -105,6 +105,22 @@ func (app *Config) GetAllTransactions(w http.ResponseWriter, r *http.Request) {
 	}
 	app.writeJSON(w, http.StatusAccepted, payload)
 }
+func (app *Config) GetAllTransactionsOfCategory(w http.ResponseWriter, r *http.Request){
+	u := chi.URLParam(r, "user")
+	c := chi.URLParam(r, "category")
+
+	transactions, err := app.Models.Transaction.GetAllTransactionsOfCategory(u,c)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	payload := jsonResponse{
+		Error:   false,
+		Message: fmt.Sprintf("Retrieved transaction data for user %s", u),
+		Data:    transactions,
+	}
+	app.writeJSON(w, http.StatusAccepted, payload)
+}
 
 func (app *Config) GetReccurringPayments(w http.ResponseWriter, r *http.Request) {
 	u := chi.URLParam(r, "user")
