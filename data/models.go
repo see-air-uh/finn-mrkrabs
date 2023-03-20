@@ -78,7 +78,20 @@ func (t *Transaction) GetUserBalance(email string) (float32, error) {
 	return totalBalance, nil
 }
 
-// func (t *Transaction) UpdateTransactionCategory(username string, transactionID)
+func (t *Transaction) UpdateTransactionCategory(username string, transactionID int, category string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `
+	update mrkrabs.transactions
+	set category = $1
+	where transactionid = $2 and username = $3
+	`
+	_, err := db.QueryContext(ctx, query, category, transactionID, username)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 func (t *Transaction) UpdateBalance(username string, transactionAmount float32, transactionName string, transactionDescription string, transactionCategory string) (float32, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
