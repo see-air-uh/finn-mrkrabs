@@ -30,7 +30,7 @@ func (app *Config) routes() http.Handler {
 	mux.Post("/recurring/add/{user}", app.AddReccurringPayment)
 	mux.Get("/recurring/history/{user}", app.GetPaymentHistory)
 
-	mux.Put("/transaction/{user}/category", app.UpdateTransactionCategory)
+	mux.Post("/transaction/{user}/category", app.UpdateTransactionCategory)
 	mux.Get("/transaction/{user}/category", app.GetCategories)
 	return mux
 }
