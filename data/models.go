@@ -26,6 +26,7 @@ type Models struct {
 	Transaction      Transaction
 	RecurringPayment RecurringPayment
 	PaymentHistory   PaymentHistory
+	Category Category
 }
 
 type Transaction struct {
@@ -34,6 +35,12 @@ type Transaction struct {
 	TransactionAmount      float32 `json:"transactionAmount"`
 	TransactionName        string  `json:"transactionName"`
 	TransactionDescription string  `json:"transactionDescription"`
+	TransactionCategory string `json:"transactionCategory"`
+}
+
+type Category struct {
+	TransactionCategory string `json:"transactionCategory"`
+	Username string `json:"username"`
 }
 
 type RecurringPayment struct {
@@ -50,6 +57,47 @@ type PaymentHistory struct {
 	PaymentID            int    `json:"paymentID"`
 	PaymentHistoryDate   string `json:"paymentHistoryDate"`
 	PaymentHistoryStatus bool   `json:"paymentHistoryStatus"`
+}
+
+func (c *Category) GetCategories(username string) ([]Category, error) {
+	ctx, cancel := context.WithTimeout(context.Background(),dbTimeout)
+	defer cancel()
+	query :=`
+	select username, category
+	from mrkrabs.categories
+	where username = $1
+	`
+
+	rows, err := db.QueryContext(ctx, query, username)
+	if err != nil {
+		return nil, err
+	}
+	var categories []Category
+	for rows.Next() {
+		var category Category
+		if err := rows.Scan(&category.Username, &category.TransactionCategory); err != nil {
+			return categories, err
+		}
+		categories = append(categories, category)
+	}
+	if err = rows.Err(); err != nil {
+		return categories, err
+	}
+	return categories, nil
+}
+
+func (c *Category) CreateCategory(username string, category string)  error {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `
+	insert into mrkrabs.categories (username, category)
+	values ($1, $2)
+	`
+	_, err := db.ExecContext(ctx, query, username, category)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (t *Transaction) GetUserBalance(email string) (float32, error) {
