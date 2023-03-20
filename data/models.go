@@ -59,47 +59,6 @@ type PaymentHistory struct {
 	PaymentHistoryStatus bool   `json:"paymentHistoryStatus"`
 }
 
-func (c *Category) GetCategories(username string) ([]Category, error) {
-	ctx, cancel := context.WithTimeout(context.Background(),dbTimeout)
-	defer cancel()
-	query :=`
-	select username, category
-	from mrkrabs.categories
-	where username = $1
-	`
-
-	rows, err := db.QueryContext(ctx, query, username)
-	if err != nil {
-		return nil, err
-	}
-	var categories []Category
-	for rows.Next() {
-		var category Category
-		if err := rows.Scan(&category.Username, &category.TransactionCategory); err != nil {
-			return categories, err
-		}
-		categories = append(categories, category)
-	}
-	if err = rows.Err(); err != nil {
-		return categories, err
-	}
-	return categories, nil
-}
-
-func (c *Category) CreateCategory(username string, category string)  error {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-	query := `
-	insert into mrkrabs.categories (username, category)
-	values ($1, $2)
-	`
-	_, err := db.ExecContext(ctx, query, username, category)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (t *Transaction) GetUserBalance(email string) (float32, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
@@ -119,11 +78,11 @@ func (t *Transaction) GetUserBalance(email string) (float32, error) {
 	return totalBalance, nil
 }
 
-func (t *Transaction) UpdateBalance(username string, transactionAmount float32, transactionName string, transactionDescription string) (float32, error) {
+func (t *Transaction) UpdateBalance(username string, transactionAmount float32, transactionName string, transactionDescription string, transactionCategory string) (float32, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
-	query := `insert into mrkrabs.Transactions (Username, TransactionAmount, TransactionName, TransactionDescription) values
-	($1,$2,$3,$4)`
+	query := `insert into mrkrabs.Transactions (Username, TransactionAmount, TransactionName, TransactionDescription, Category) values
+	($1,$2,$3,$4,$5)`
 
 	balance, err := t.GetUserBalance(username)
 	if err != nil && err.Error() != "sql: no rows in result set" {
@@ -133,7 +92,7 @@ func (t *Transaction) UpdateBalance(username string, transactionAmount float32, 
 		return 0, errors.New("error. can not decrement balance below zero")
 	}
 
-	_, err = db.ExecContext(ctx, query, username, transactionAmount, transactionName, transactionDescription)
+	_, err = db.ExecContext(ctx, query, username, transactionAmount, transactionName, transactionDescription,transactionCategory)
 	if err != nil {
 		return 0, err
 	}
@@ -144,7 +103,7 @@ func (t *Transaction) UpdateBalance(username string, transactionAmount float32, 
 func (t *Transaction) GetAllTransactions(username string) ([]Transaction, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
-	query := `select TransactionID, username, transactionamount, transactionname, transactiondescription from mrkrabs.Transactions where Username = $1`
+	query := `select TransactionID, username, transactionamount, transactionname, transactiondescription, category from mrkrabs.Transactions where Username = $1`
 
 	rows, err := db.QueryContext(ctx, query, username)
 	if err != nil {
@@ -155,7 +114,7 @@ func (t *Transaction) GetAllTransactions(username string) ([]Transaction, error)
 	var transactions []Transaction
 	for rows.Next() {
 		var trans Transaction
-		if err := rows.Scan(&trans.TransactionID, &trans.UserID, &trans.TransactionAmount, &trans.TransactionName, &trans.TransactionDescription); err != nil {
+		if err := rows.Scan(&trans.TransactionID, &trans.UserID, &trans.TransactionAmount, &trans.TransactionName, &trans.TransactionDescription, &trans.TransactionCategory); err != nil {
 			return transactions, err
 		}
 		transactions = append(transactions, trans)

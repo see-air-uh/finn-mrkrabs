@@ -7,47 +7,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func (app *Config ) GetCategories(w http.ResponseWriter, r *http.Request){
-	u := chi.URLParam(r, "user")
-
-	categories, err := app.Models.Category.GetCategories(u)
-	if err != nil {
-		app.errorJSON(w, err, http.StatusBadRequest)
-		return
-	}
-
-	payload := jsonResponse {
-		Error: false,
-		Message: fmt.Sprintf("Grabbed categories for user %s", u),
-		Data: categories,
-	}
-
-	app.writeJSON(w, http.StatusAccepted, payload)
-}
-
-func (app *Config) CreateCategory(w http.ResponseWriter, r *http.Request){
-	u := chi.URLParam(r, "user")
-	var requestPayload struct {
-		TransactionCategory string `json:"transactionCategory"`
-	}
-	err := app.readJSON(w, r, &requestPayload)
-	if err != nil {
-		app.errorJSON(w, err, http.StatusBadRequest)
-		return
-	}
-	err = app.Models.Category.CreateCategory(u, requestPayload.TransactionCategory)
-	if err != nil {
-		app.errorJSON(w, err, http.StatusBadRequest)
-		return
-	}
-	payload := jsonResponse {
-		Error: false,
-		Message:fmt.Sprintf("succesfully created category %s",requestPayload.TransactionCategory ),
-		
-	}
-
-	app.writeJSON(w, http.StatusAccepted, payload)
-}
 func (app *Config) GetBalance(w http.ResponseWriter, r *http.Request) {
 	u := chi.URLParam(r, "user")
 
@@ -74,14 +33,16 @@ func (app *Config) UpdateBalance(w http.ResponseWriter, r *http.Request) {
 		TransactionAmount      float32 `json:"transactionAmount"`
 		TransactionName        string  `json:"transactionName"`
 		TransactionDescription string  `json:"transactionDescription"`
+		TransactionCategory 	 string  `json:"transactionCategory"`
 	}
 	err := app.readJSON(w, r, &requestPayload)
 	if err != nil {
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
 	}
-	balance, err := app.Models.Transaction.UpdateBalance(u, requestPayload.TransactionAmount, requestPayload.TransactionName, requestPayload.TransactionDescription)
+	balance, err := app.Models.Transaction.UpdateBalance(u, requestPayload.TransactionAmount, requestPayload.TransactionName, requestPayload.TransactionDescription, requestPayload.TransactionCategory)
 	if err != nil {
+
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
 	}
