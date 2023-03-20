@@ -30,8 +30,8 @@ type Models struct {
 }
 
 type Transaction struct {
-	TransactionID          int     `json:"-"`
-	UserID                 string  `json:"id"`
+	TransactionID          int     `json:"transaction_id"`
+	UserID                 string  `json:"user_id"`
 	TransactionAmount      float32 `json:"transactionAmount"`
 	TransactionName        string  `json:"transactionName"`
 	TransactionDescription string  `json:"transactionDescription"`
@@ -77,6 +77,8 @@ func (t *Transaction) GetUserBalance(email string) (float32, error) {
 
 	return totalBalance, nil
 }
+
+// func (t *Transaction) UpdateTransactionCategory(username string, transactionID)
 
 func (t *Transaction) UpdateBalance(username string, transactionAmount float32, transactionName string, transactionDescription string, transactionCategory string) (float32, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
