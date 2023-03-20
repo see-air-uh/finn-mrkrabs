@@ -48,7 +48,21 @@ func (app *Config) UpdateTransactionCategory( w http.ResponseWriter, r *http.Req
 		Message: "updated category",
 	})
 }
+func (app *Config) GetCategories(w http.ResponseWriter, r *http.Request){
+	u := chi.URLParam(r, "user")
+	categories, err := app.Models.Transaction.GetAllCategories(u)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
 
+	app.writeJSON(w, http.StatusAccepted, jsonResponse {
+		Error: false,
+		Message: fmt.Sprintf("successfully grabbed all categories for %s", u),
+		Data: categories,
+	})
+
+}
 func (app *Config) UpdateBalance(w http.ResponseWriter, r *http.Request) {
 	u := chi.URLParam(r, "user")
 	var requestPayload struct {

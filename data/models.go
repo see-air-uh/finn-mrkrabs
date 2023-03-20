@@ -93,6 +93,30 @@ func (t *Transaction) UpdateTransactionCategory(username string, transactionID i
 	return nil
 }
 
+func (t *Transaction) GetAllCategories(username string) ([]string,error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `
+	select distinct category from mrkrabs.transactions
+  where username = $1
+	`
+
+	var categories []string
+
+	rows, err := db.QueryContext(ctx, query, username)
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return categories, nil
+		}
+		categories = append(categories, s)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return categories, nil
+}
+
 func (t *Transaction) UpdateBalance(username string, transactionAmount float32, transactionName string, transactionDescription string, transactionCategory string) (float32, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
