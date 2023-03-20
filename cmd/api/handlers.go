@@ -25,6 +25,29 @@ func (app *Config) GetBalance(w http.ResponseWriter, r *http.Request) {
 
 	app.writeJSON(w, http.StatusAccepted, payload)
 }
+func (app *Config) UpdateTransactionCategory( w http.ResponseWriter, r *http.Request){
+	u := chi.URLParam(r, "user")
+
+	var requestPayload struct {
+		TransactionID int `json:"transactionID"`
+		TransactionCategory string `json:"transactionCategory"`
+	}
+	err := app.readJSON(w, r, &requestPayload)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	err = app.Models.Transaction.UpdateTransactionCategory(u,requestPayload.TransactionID, requestPayload.TransactionCategory)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	app.writeJSON(w, http.StatusAccepted, jsonResponse {
+		Error: true,
+		Message: "updated category",
+	})
+}
 
 func (app *Config) UpdateBalance(w http.ResponseWriter, r *http.Request) {
 	u := chi.URLParam(r, "user")
