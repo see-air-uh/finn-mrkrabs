@@ -25,7 +25,44 @@ func (app *Config) GetBalance(w http.ResponseWriter, r *http.Request) {
 
 	app.writeJSON(w, http.StatusAccepted, payload)
 }
+func (app *Config) UpdateTransactionCategory( w http.ResponseWriter, r *http.Request){
+	u := chi.URLParam(r, "user")
 
+	var requestPayload struct {
+		TransactionID int `json:"transactionID"`
+		TransactionCategory string `json:"transactionCategory"`
+	}
+	err := app.readJSON(w, r, &requestPayload)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	err = app.Models.Transaction.UpdateTransactionCategory(u,requestPayload.TransactionID, requestPayload.TransactionCategory)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	app.writeJSON(w, http.StatusAccepted, jsonResponse {
+		Error: true,
+		Message: "updated category",
+	})
+}
+func (app *Config) GetCategories(w http.ResponseWriter, r *http.Request){
+	u := chi.URLParam(r, "user")
+	categories, err := app.Models.Transaction.GetAllCategories(u)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	app.writeJSON(w, http.StatusAccepted, jsonResponse {
+		Error: false,
+		Message: fmt.Sprintf("successfully grabbed all categories for %s", u),
+		Data: categories,
+	})
+
+}
 func (app *Config) UpdateBalance(w http.ResponseWriter, r *http.Request) {
 	u := chi.URLParam(r, "user")
 	var requestPayload struct {
@@ -33,14 +70,16 @@ func (app *Config) UpdateBalance(w http.ResponseWriter, r *http.Request) {
 		TransactionAmount      float32 `json:"transactionAmount"`
 		TransactionName        string  `json:"transactionName"`
 		TransactionDescription string  `json:"transactionDescription"`
+		TransactionCategory 	 string  `json:"transactionCategory"`
 	}
 	err := app.readJSON(w, r, &requestPayload)
 	if err != nil {
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
 	}
-	balance, err := app.Models.Transaction.UpdateBalance(u, requestPayload.TransactionAmount, requestPayload.TransactionName, requestPayload.TransactionDescription)
+	balance, err := app.Models.Transaction.UpdateBalance(u, requestPayload.TransactionAmount, requestPayload.TransactionName, requestPayload.TransactionDescription, requestPayload.TransactionCategory)
 	if err != nil {
+
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
 	}
@@ -65,7 +104,22 @@ func (app *Config) GetAllTransactions(w http.ResponseWriter, r *http.Request) {
 		Data:    transactions,
 	}
 	app.writeJSON(w, http.StatusAccepted, payload)
+}
+func (app *Config) GetAllTransactionsOfCategory(w http.ResponseWriter, r *http.Request){
+	u := chi.URLParam(r, "user")
+	c := chi.URLParam(r, "category")
 
+	transactions, err := app.Models.Transaction.GetAllTransactionsOfCategory(u,c)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	payload := jsonResponse{
+		Error:   false,
+		Message: fmt.Sprintf("Retrieved transaction data for user %s", u),
+		Data:    transactions,
+	}
+	app.writeJSON(w, http.StatusAccepted, payload)
 }
 
 func (app *Config) GetReccurringPayments(w http.ResponseWriter, r *http.Request) {
