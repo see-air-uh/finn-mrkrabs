@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -61,7 +62,6 @@ func (app *Config) GetCategories(w http.ResponseWriter, r *http.Request){
 		Message: fmt.Sprintf("successfully grabbed all categories for %s", u),
 		Data: categories,
 	})
-
 }
 func (app *Config) UpdateBalance(w http.ResponseWriter, r *http.Request) {
 	u := chi.URLParam(r, "user")
@@ -121,7 +121,6 @@ func (app *Config) GetAllTransactionsOfCategory(w http.ResponseWriter, r *http.R
 	}
 	app.writeJSON(w, http.StatusAccepted, payload)
 }
-
 func (app *Config) GetReccurringPayments(w http.ResponseWriter, r *http.Request) {
 	u := chi.URLParam(r, "user")
 
@@ -140,7 +139,6 @@ func (app *Config) GetReccurringPayments(w http.ResponseWriter, r *http.Request)
 
 	app.writeJSON(w, http.StatusAccepted, payload)
 }
-
 func (app *Config) GetAllReccurringPayments(w http.ResponseWriter, r *http.Request) {
 	u := chi.URLParam(r, "user")
 
@@ -159,7 +157,6 @@ func (app *Config) GetAllReccurringPayments(w http.ResponseWriter, r *http.Reque
 
 	app.writeJSON(w, http.StatusAccepted, payload)
 }
-
 func (app *Config) AddReccurringPayment(w http.ResponseWriter, r *http.Request) {
 	u := chi.URLParam(r, "user")
 	var requestPayload struct {
@@ -202,5 +199,97 @@ func (app *Config) GetPaymentHistory(w http.ResponseWriter, r *http.Request) {
 		Data:    transactions,
 	}
 	app.writeJSON(w, http.StatusAccepted, payload)
+}
+func (app *Config) GetAllDebts(w http.ResponseWriter, r* http.Request){
+	u := chi.URLParam(r, "user")
 
+	debts, err := app.Models.Debt.GetAllDebts(u)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	payload := jsonResponse{
+		Error: false,
+		Message: fmt.Sprintf("Retrieved debts for user %s",u),
+		Data: debts,
+	}
+	app.writeJSON(w, http.StatusAccepted,payload)
+}
+
+func (app *Config) CreateDebt(w http.ResponseWriter, r* http.Request){
+	u := chi.URLParam(r, "user")
+	var debtPayload struct {
+		TotalOwing float32 `json:"total_owing"`
+	}
+	err := app.readJSON(w, r, &debtPayload)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	debt, err := app.Models.Debt.CreateDebt(u, debtPayload.TotalOwing)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	payload := jsonResponse{
+		Error: false,
+		Message: fmt.Sprintf("Created debt for user %s that has id %d",u, debt),
+		Data: debt,
+	}
+	app.writeJSON(w, http.StatusAccepted, payload)
+}
+
+func (app *Config) GetDebtByID(w http.ResponseWriter, r* http.Request){
+	u := chi.URLParam(r, "user")
+	debtIDString := chi.URLParam(r, "debtID")
+
+	debtID, err := strconv.Atoi(debtIDString)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	debt, err := app.Models.Debt.GetDebtByID(debtID, u)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	payload := jsonResponse{
+		Error: false,
+		Message: fmt.Sprintf("Retrieved debt for user %s with id %s",u, debtIDString),
+		Data: debt,
+	}
+	app.writeJSON(w, http.StatusAccepted, payload)
+}
+
+func (app *Config) MakeDebtPayment(w http.ResponseWriter, r* http.Request){
+	u := chi.URLParam(r, "user")
+	debtIDString := chi.URLParam(r, "debtID")
+
+	debtID, err := strconv.Atoi(debtIDString)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	var debtPayload struct {
+		Amount float32 `json:"amount"`
+	}
+	err = app.readJSON(w, r, &debtPayload)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	
+	debt, err := app.Models.Debt.MakeDebtPayment(u, debtID,debtPayload.Amount)
+
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return 
+	}
+	payload := jsonResponse{
+		Error: false,
+		Message: fmt.Sprintf("Made debt payment for user %s with id %s",u, debtIDString),
+		Data: debt,
+	}
+	app.writeJSON(w, http.StatusAccepted, payload)
 }

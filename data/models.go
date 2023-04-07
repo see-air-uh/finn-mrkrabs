@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
 	// "errors"
 
@@ -27,6 +28,7 @@ type Models struct {
 	RecurringPayment RecurringPayment
 	PaymentHistory   PaymentHistory
 	Category Category
+	Debt Debt
 }
 
 type Transaction struct {
@@ -36,6 +38,17 @@ type Transaction struct {
 	TransactionName        string  `json:"transactionName"`
 	TransactionDescription string  `json:"transactionDescription"`
 	TransactionCategory string `json:"transactionCategory"`
+}
+
+type Debt struct {
+	DebtID int `json:"debtID"`
+	UserID string `json:"user_id"`
+	TotalOwing float32 `json:"total_owing"`
+	TotalDebtPayments float32 `json:"total_payments"`
+}
+type DebtPayment struct {
+	PaymentID int `json:"payment_id"`
+	TransactionID int `json:"transaction_id"`
 }
 
 type Category struct {
@@ -283,4 +296,141 @@ func (t *PaymentHistory) GetPaymentHistory(paymentID int) ([]PaymentHistory, err
 		return payments, err
 	}
 	return payments, nil
+}
+func (d *Debt) GetAllDebts(userID string) ([]Debt, error ){
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `
+	SELECT
+  Debt.DebtID,
+  Debt.UserID,
+  Debt.TotalOwing,
+  COALESCE(SUM(transactions.TransactionAmount), 0) * -1 AS TotalDebtPayments
+FROM
+  mrkrabs.Debt
+  LEFT JOIN mrkrabs.DebtPayment
+    ON Debt.DebtID = DebtPayment.DebtID
+  LEFT JOIN mrkrabs.transactions
+    ON DebtPayment.TransactionID = transactions.TransactionID
+WHERE
+  Debt.UserID = $1
+GROUP BY
+  Debt.DebtID,
+  Debt.UserID,
+  Debt.TotalOwing;`
+	rows, err := db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var debts []Debt
+	for rows.Next() {
+		var debt Debt
+		if err := rows.Scan(&debt.DebtID, &debt.UserID, &debt.TotalOwing, &debt.TotalDebtPayments); err != nil {
+			return debts, err
+		}
+		debts = append(debts, debt)
+	}
+	if err = rows.Err(); err != nil {
+		return debts, err
+	}
+	return debts, nil
+}
+func (d *Debt) CreateDebt(userID string, totalOwing float32) (int, error){
+	ctx, cancel := context.WithTimeout(context.Background(),dbTimeout)
+	defer cancel()
+	query := `INSERT INTO mrkrabs.Debt (UserID, TotalOwing)
+	VALUES ($1, $2)
+	RETURNING DebtID;
+	`
+
+	var debtID int
+
+	row := db.QueryRowContext(ctx, query, userID, totalOwing)
+	err := row.Scan(&debtID)
+	if err != nil {
+		return -1, err
+	}
+	return debtID, nil
+}
+
+func (d *Debt) GetDebtByID(debtID int, userID string) (Debt, error){
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `
+	SELECT
+  Debt.DebtID,
+  Debt.UserID,
+  Debt.TotalOwing,
+  COALESCE(SUM(transactions.TransactionAmount), 0) * -1 AS TotalDebtPayments
+FROM
+  mrkrabs.Debt
+  LEFT JOIN mrkrabs.DebtPayment
+    ON Debt.DebtID = DebtPayment.DebtID
+  LEFT JOIN mrkrabs.transactions
+    ON DebtPayment.TransactionID = transactions.TransactionID
+WHERE
+  Debt.DebtID = $1
+	AND Debt.UserID = $2
+GROUP BY
+  Debt.DebtID,
+  Debt.UserID,
+  Debt.TotalOwing;`
+
+	var debt Debt
+	row := db.QueryRowContext(ctx, query, debtID, userID)
+	err := row.Scan(&debt.DebtID, &debt.UserID, &debt.TotalOwing, &debt.TotalDebtPayments)
+	if err != nil {
+		return debt, err
+	}
+
+	return debt, nil
+}
+func (d *Debt) MakeDebtPayment(userID string, debtID int, amount float32) (Debt, error){
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	if amount > 0 {
+		amount = amount * -1
+	}
+	fmt.Sprintf("amt:", amount)
+	var t *Transaction
+	var debt Debt
+	var transactionID int
+
+	// check if debt exists
+	debt, err := d.GetDebtByID(debtID, userID)
+	if err != nil {
+		return debt, err
+	}
+
+	// create transaction
+	query := `insert into mrkrabs.Transactions (Username, TransactionAmount, TransactionName, TransactionDescription, Category) values
+	($1,$2,$3,$4,$5)
+	RETURNING TransactionID`
+	balance, err := t.GetUserBalance(userID)
+	if err != nil && err.Error() != "sql: no rows in result set" {
+		return debt, err
+	}
+	if (balance + amount) < 0 {
+		return debt, errors.New("error. can not decrement balance below zero")
+	}
+	row := db.QueryRowContext(ctx, query, userID, amount, fmt.Sprintf("balance payment for debt %d", debtID), "","Debt")
+	err = row.Scan(&transactionID)
+	if err != nil {
+		return debt, err
+	}
+
+	// insert transaction with debt
+	query = `insert into mrkrabs.DebtPayment (TransactionID, DebtID)
+	values ($1,$2)`
+	_, err = db.QueryContext(ctx, query, transactionID, debtID)
+	if err != nil {
+		return debt, err
+	}
+
+	debt, err = d.GetDebtByID(debtID, userID)
+	if err != nil {
+		return debt, err
+	}
+	return debt, nil
 }
