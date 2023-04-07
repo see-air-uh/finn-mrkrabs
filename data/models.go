@@ -389,20 +389,19 @@ GROUP BY
 func (d *Debt) MakeDebtPayment(userID string, debtID int, amount float32) (Debt, error){
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
-	// check if debt exists
 	if amount > 0 {
 		amount = amount * -1
 	}
-
-
 	fmt.Sprintf("amt:", amount)
-
 	var t *Transaction
 	var debt Debt
 	var transactionID int
 
 	// check if debt exists
-
+	debt, err := d.GetDebtByID(debtID, userID)
+	if err != nil {
+		return debt, err
+	}
 
 	// create transaction
 	query := `insert into mrkrabs.Transactions (Username, TransactionAmount, TransactionName, TransactionDescription, Category) values
@@ -434,7 +433,4 @@ func (d *Debt) MakeDebtPayment(userID string, debtID int, amount float32) (Debt,
 		return debt, err
 	}
 	return debt, nil
-
-	
-	
 }
