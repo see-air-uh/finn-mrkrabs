@@ -260,3 +260,36 @@ func (app *Config) GetDebtByID(w http.ResponseWriter, r* http.Request){
 	}
 	app.writeJSON(w, http.StatusAccepted, payload)
 }
+
+func (app *Config) MakeDebtPayment(w http.ResponseWriter, r* http.Request){
+	u := chi.URLParam(r, "user")
+	debtIDString := chi.URLParam(r, "debtID")
+
+	debtID, err := strconv.Atoi(debtIDString)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	var debtPayload struct {
+		Amount float32 `json:"amount"`
+	}
+	err = app.readJSON(w, r, &debtPayload)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	
+	debt, err := app.Models.Debt.MakeDebtPayment(u, debtID,debtPayload.Amount)
+
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return 
+	}
+	payload := jsonResponse{
+		Error: false,
+		Message: fmt.Sprintf("Made debt payment for user %s with id %s",u, debtIDString),
+		Data: debt,
+	}
+	app.writeJSON(w, http.StatusAccepted, payload)
+}

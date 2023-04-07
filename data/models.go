@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
 	// "errors"
 
@@ -304,7 +305,7 @@ func (d *Debt) GetAllDebts(userID string) ([]Debt, error ){
   Debt.DebtID,
   Debt.UserID,
   Debt.TotalOwing,
-  COALESCE(SUM(transactions.TransactionAmount), 0) AS TotalDebtPayments
+  COALESCE(SUM(transactions.TransactionAmount), 0) * -1 AS TotalDebtPayments
 FROM
   mrkrabs.Debt
   LEFT JOIN mrkrabs.DebtPayment
@@ -361,7 +362,7 @@ func (d *Debt) GetDebtByID(debtID int, userID string) (Debt, error){
   Debt.DebtID,
   Debt.UserID,
   Debt.TotalOwing,
-  COALESCE(SUM(transactions.TransactionAmount), 0) AS TotalDebtPayments
+  COALESCE(SUM(transactions.TransactionAmount), 0) * -1 AS TotalDebtPayments
 FROM
   mrkrabs.Debt
   LEFT JOIN mrkrabs.DebtPayment
@@ -384,4 +385,56 @@ GROUP BY
 	}
 
 	return debt, nil
+}
+func (d *Debt) MakeDebtPayment(userID string, debtID int, amount float32) (Debt, error){
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	// check if debt exists
+	if amount > 0 {
+		amount = amount * -1
+	}
+
+
+	fmt.Sprintf("amt:", amount)
+
+	var t *Transaction
+	var debt Debt
+	var transactionID int
+
+	// check if debt exists
+
+
+	// create transaction
+	query := `insert into mrkrabs.Transactions (Username, TransactionAmount, TransactionName, TransactionDescription, Category) values
+	($1,$2,$3,$4,$5)
+	RETURNING TransactionID`
+	balance, err := t.GetUserBalance(userID)
+	if err != nil && err.Error() != "sql: no rows in result set" {
+		return debt, err
+	}
+	if (balance + amount) < 0 {
+		return debt, errors.New("error. can not decrement balance below zero")
+	}
+	row := db.QueryRowContext(ctx, query, userID, amount, fmt.Sprintf("balance payment for debt %d", debtID), "","Debt")
+	err = row.Scan(&transactionID)
+	if err != nil {
+		return debt, err
+	}
+
+	// insert transaction with debt
+	query = `insert into mrkrabs.DebtPayment (TransactionID, DebtID)
+	values ($1,$2)`
+	_, err = db.QueryContext(ctx, query, transactionID, debtID)
+	if err != nil {
+		return debt, err
+	}
+
+	debt, err = d.GetDebtByID(debtID, userID)
+	if err != nil {
+		return debt, err
+	}
+	return debt, nil
+
+	
+	
 }

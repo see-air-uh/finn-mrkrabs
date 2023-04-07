@@ -37,6 +37,7 @@ func (app *Config) routes() http.Handler {
 	mux.Get("/debt/{user}", app.GetAllDebts)
 	mux.Post("/debt/{user}",app.CreateDebt)
 	mux.Get("/debt/{user}/{debtID}", app.GetDebtByID)
+	mux.Post("/debt/{user}/{debtID}", app.MakeDebtPayment)
 
 	return mux
 }
