@@ -295,11 +295,27 @@ func (t *PaymentHistory) GetPaymentHistory(paymentID int) ([]PaymentHistory, err
 	}
 	return payments, nil
 }
-
 func (d *Debt) GetAllDebts(userID string) ([]Debt, error ){
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
-	query := `SELECT DebtID, UserID, TotalOwing from mrkrabs.Debt where Username = $1`
+	query := `
+	SELECT
+  Debt.DebtID,
+  Debt.UserID,
+  Debt.TotalOwing,
+  COALESCE(SUM(transactions.TransactionAmount), 0) AS TotalDebtPayments
+FROM
+  mrkrabs.Debt
+  LEFT JOIN mrkrabs.DebtPayment
+    ON Debt.DebtID = DebtPayment.DebtID
+  LEFT JOIN mrkrabs.transactions
+    ON DebtPayment.TransactionID = transactions.TransactionID
+WHERE
+  Debt.UserID = $1
+GROUP BY
+  Debt.DebtID,
+  Debt.UserID,
+  Debt.TotalOwing;`
 	rows, err := db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
@@ -318,7 +334,6 @@ func (d *Debt) GetAllDebts(userID string) ([]Debt, error ){
 	}
 	return debts, nil
 }
-
 func (d *Debt) CreateDebt(userID string, totalOwing float32) (int, error){
 	ctx, cancel := context.WithTimeout(context.Background(),dbTimeout)
 	defer cancel()
@@ -335,5 +350,4 @@ func (d *Debt) CreateDebt(userID string, totalOwing float32) (int, error){
 		return -1, err
 	}
 	return debtID, nil
-
 }
