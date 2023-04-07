@@ -214,3 +214,21 @@ func (app *Config) GetAllDebts(w http.ResponseWriter, r* http.Request){
 	}
 	app.writeJSON(w, http.StatusAccepted,payload)
 }
+
+func (app *Config) CreateDebt(w http.ResponseWriter, r* http.Request){
+	u := chi.URLParam(r, "user")
+	var debtPayload struct {
+		TotalOwing float32 `json:"total_owing"`
+	}
+	err := app.readJSON(w, r, &debtPayload)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	debt, err := app.Models.Debt.CreateDebt(u, debtPayload.TotalOwing)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	app.writeJSON(w, http.StatusAccepted, debt)
+}

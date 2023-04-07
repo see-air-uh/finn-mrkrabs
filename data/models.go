@@ -318,3 +318,22 @@ func (d *Debt) GetAllDebts(userID string) ([]Debt, error ){
 	}
 	return debts, nil
 }
+
+func (d *Debt) CreateDebt(userID string, totalOwing float32) (int, error){
+	ctx, cancel := context.WithTimeout(context.Background(),dbTimeout)
+	defer cancel()
+	query := `INSERT INTO mrkrabs.Debt (UserID, TotalOwing)
+	VALUES ($1, $2)
+	RETURNING DebtID;
+	`
+
+	var debtID int
+
+	row := db.QueryRowContext(ctx, query, userID, totalOwing)
+	err := row.Scan(&debtID)
+	if err != nil {
+		return -1, err
+	}
+	return debtID, nil
+
+}
