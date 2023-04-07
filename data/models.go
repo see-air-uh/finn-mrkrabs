@@ -43,6 +43,7 @@ type Debt struct {
 	DebtID int `json:"debtID"`
 	UserID string `json:"user_id"`
 	TotalOwing float32 `json:"total_owing"`
+	TotalDebtPayments float32 `json:"total_payments"`
 }
 type DebtPayment struct {
 	PaymentID int `json:"payment_id"`
@@ -324,7 +325,7 @@ GROUP BY
 	var debts []Debt
 	for rows.Next() {
 		var debt Debt
-		if err := rows.Scan(&debt.DebtID, &debt.UserID, &debt.TotalOwing); err != nil {
+		if err := rows.Scan(&debt.DebtID, &debt.UserID, &debt.TotalOwing, &debt.TotalDebtPayments); err != nil {
 			return debts, err
 		}
 		debts = append(debts, debt)
@@ -350,4 +351,37 @@ func (d *Debt) CreateDebt(userID string, totalOwing float32) (int, error){
 		return -1, err
 	}
 	return debtID, nil
+}
+
+func (d *Debt) GetDebtByID(debtID int, userID string) (Debt, error){
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `
+	SELECT
+  Debt.DebtID,
+  Debt.UserID,
+  Debt.TotalOwing,
+  COALESCE(SUM(transactions.TransactionAmount), 0) AS TotalDebtPayments
+FROM
+  mrkrabs.Debt
+  LEFT JOIN mrkrabs.DebtPayment
+    ON Debt.DebtID = DebtPayment.DebtID
+  LEFT JOIN mrkrabs.transactions
+    ON DebtPayment.TransactionID = transactions.TransactionID
+WHERE
+  Debt.DebtID = $1
+	AND Debt.UserID = $2
+GROUP BY
+  Debt.DebtID,
+  Debt.UserID,
+  Debt.TotalOwing;`
+
+	var debt Debt
+	row := db.QueryRowContext(ctx, query, debtID, userID)
+	err := row.Scan(&debt.DebtID, &debt.UserID, &debt.TotalOwing, &debt.TotalDebtPayments)
+	if err != nil {
+		return debt, err
+	}
+
+	return debt, nil
 }

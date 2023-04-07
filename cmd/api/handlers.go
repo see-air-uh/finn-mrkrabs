@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -230,5 +231,32 @@ func (app *Config) CreateDebt(w http.ResponseWriter, r* http.Request){
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
 	}
-	app.writeJSON(w, http.StatusAccepted, debt)
+	payload := jsonResponse{
+		Error: false,
+		Message: fmt.Sprintf("Created debt for user %s that has id %d",u, debt),
+		Data: debt,
+	}
+	app.writeJSON(w, http.StatusAccepted, payload)
+}
+
+func (app *Config) GetDebtByID(w http.ResponseWriter, r* http.Request){
+	u := chi.URLParam(r, "user")
+	debtIDString := chi.URLParam(r, "debtID")
+
+	debtID, err := strconv.Atoi(debtIDString)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	debt, err := app.Models.Debt.GetDebtByID(debtID, u)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	payload := jsonResponse{
+		Error: false,
+		Message: fmt.Sprintf("Retrieved debt for user %s with id %s",u, debtIDString),
+		Data: debt,
+	}
+	app.writeJSON(w, http.StatusAccepted, payload)
 }
