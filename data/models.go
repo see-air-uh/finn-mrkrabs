@@ -27,6 +27,7 @@ type Models struct {
 	RecurringPayment RecurringPayment
 	PaymentHistory   PaymentHistory
 	Category Category
+	Debt Debt
 }
 
 type Transaction struct {
@@ -36,6 +37,16 @@ type Transaction struct {
 	TransactionName        string  `json:"transactionName"`
 	TransactionDescription string  `json:"transactionDescription"`
 	TransactionCategory string `json:"transactionCategory"`
+}
+
+type Debt struct {
+	DebtID int `json:"debtID"`
+	UserID string `json:"user_id"`
+	TotalOwing float32 `json:"total_owing"`
+}
+type DebtPayment struct {
+	PaymentID int `json:"payment_id"`
+	TransactionID int `json:"transaction_id"`
 }
 
 type Category struct {
@@ -283,4 +294,27 @@ func (t *PaymentHistory) GetPaymentHistory(paymentID int) ([]PaymentHistory, err
 		return payments, err
 	}
 	return payments, nil
+}
+
+func (d *Debt) GetAllDebts(userID string) ([]Debt, error ){
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `SELECT DebtID, UserID, TotalOwing from mrkrabs.Debt where Username = $1`
+	rows, err := db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var debts []Debt
+	for rows.Next() {
+		var debt Debt
+		if err := rows.Scan(&debt.DebtID, &debt.UserID, &debt.TotalOwing); err != nil {
+			return debts, err
+		}
+		debts = append(debts, debt)
+	}
+	if err = rows.Err(); err != nil {
+		return debts, err
+	}
+	return debts, nil
 }

@@ -33,5 +33,8 @@ func (app *Config) routes() http.Handler {
 	mux.Post("/transaction/{user}/category", app.UpdateTransactionCategory)
 	mux.Get("/transaction/{user}/category", app.GetCategories)
 	mux.Get("/transaction/{user}/category/{category}",app.GetAllTransactionsOfCategory)
+
+	mux.Get("/debt/{user}", app.GetAllDebts)
+	// mux.Post("/debt/{user}/{debtID}", app.GetDebtID)
 	return mux
 }

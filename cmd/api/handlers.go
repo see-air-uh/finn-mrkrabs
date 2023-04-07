@@ -61,7 +61,6 @@ func (app *Config) GetCategories(w http.ResponseWriter, r *http.Request){
 		Message: fmt.Sprintf("successfully grabbed all categories for %s", u),
 		Data: categories,
 	})
-
 }
 func (app *Config) UpdateBalance(w http.ResponseWriter, r *http.Request) {
 	u := chi.URLParam(r, "user")
@@ -121,7 +120,6 @@ func (app *Config) GetAllTransactionsOfCategory(w http.ResponseWriter, r *http.R
 	}
 	app.writeJSON(w, http.StatusAccepted, payload)
 }
-
 func (app *Config) GetReccurringPayments(w http.ResponseWriter, r *http.Request) {
 	u := chi.URLParam(r, "user")
 
@@ -140,7 +138,6 @@ func (app *Config) GetReccurringPayments(w http.ResponseWriter, r *http.Request)
 
 	app.writeJSON(w, http.StatusAccepted, payload)
 }
-
 func (app *Config) GetAllReccurringPayments(w http.ResponseWriter, r *http.Request) {
 	u := chi.URLParam(r, "user")
 
@@ -159,7 +156,6 @@ func (app *Config) GetAllReccurringPayments(w http.ResponseWriter, r *http.Reque
 
 	app.writeJSON(w, http.StatusAccepted, payload)
 }
-
 func (app *Config) AddReccurringPayment(w http.ResponseWriter, r *http.Request) {
 	u := chi.URLParam(r, "user")
 	var requestPayload struct {
@@ -202,5 +198,19 @@ func (app *Config) GetPaymentHistory(w http.ResponseWriter, r *http.Request) {
 		Data:    transactions,
 	}
 	app.writeJSON(w, http.StatusAccepted, payload)
+}
+func (app *Config) GetAllDebts(w http.ResponseWriter, r* http.Request){
+	u := chi.URLParam(r, "user")
 
+	debts, err := app.Models.Debt.GetAllDebts(u)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	payload := jsonResponse{
+		Error: false,
+		Message: fmt.Sprintf("Retrieved debts for user %s",u),
+		Data: debts,
+	}
+	app.writeJSON(w, http.StatusAccepted,payload)
 }
