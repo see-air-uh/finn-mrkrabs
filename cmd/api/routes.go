@@ -23,24 +23,26 @@ func (app *Config) routes() http.Handler {
 
 	mux.Use(middleware.Heartbeat("/ping"))
 
-	mux.Get("/balance/{user}", app.GetBalance)
-	mux.Post("/balance/{user}", app.UpdateBalance)
-	mux.Get("/transaction/{user}", app.GetAllTransactions)
-	mux.Get("/recurring/{user}", app.GetReccurringPayments)
-	mux.Post("/recurring/add/{user}", app.AddReccurringPayment)
-	mux.Get("/recurring/history/{user}", app.GetPaymentHistory)
+	mux.Get("/balance/{user}/{account}", app.GetBalance)
+	mux.Post("/balance/{user}/{account}", app.UpdateBalance)
+
+	mux.Get("/recurring/{user}/{account}", app.GetReccurringPayments)
+	mux.Post("/recurring/add/{user}/{account}", app.AddReccurringPayment)
+	mux.Post("/recurring/history/{user}", app.GetPaymentHistory)
+
 	mux.Get("/accounts/{user}", app.GetUserAccounts)
 	mux.Post("/accounts/add/{user}/{account}", app.AddAccount)
 	mux.Post("/accounts/add_user/{user}/{account}/{user2}", app.AddUserToAccount)
 
-	mux.Post("/transaction/{user}/category", app.UpdateTransactionCategory)
-	mux.Get("/transaction/{user}/category", app.GetCategories)
-	mux.Get("/transaction/{user}/category/{category}",app.GetAllTransactionsOfCategory)
+	mux.Get("/transaction/{user}/{account}", app.GetAllTransactions)
+	mux.Post("/transaction/{user}/{account}/category", app.UpdateTransactionCategory)
+	mux.Get("/transaction/{user}/{account}/category", app.GetCategories)
+	mux.Get("/transaction/{user}/{account}/category/{category}", app.GetAllTransactionsOfCategory)
 
-	mux.Get("/debt/{user}", app.GetAllDebts)
-	mux.Post("/debt/{user}",app.CreateDebt)
-	mux.Get("/debt/{user}/{debtID}", app.GetDebtByID)
-	mux.Post("/debt/{user}/{debtID}", app.MakeDebtPayment)
+	mux.Get("/debt/{user}/{account}", app.GetAllDebts)
+	mux.Post("/debt/{user}/{account}", app.CreateDebt)
+	mux.Get("/debt/{user}/{account}/{debtID}", app.GetDebtByID)
+	mux.Post("/debt/{user}/{account}/{debtID}", app.MakeDebtPayment)
 
 	return mux
 }
