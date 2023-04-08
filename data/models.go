@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
 	// "errors"
 
@@ -27,14 +28,33 @@ type Models struct {
 	RecurringPayment RecurringPayment
 	PaymentHistory   PaymentHistory
 	Account          Account
+	Category         Category
+	Debt             Debt
 }
 
 type Transaction struct {
-	TransactionID          int     `json:"-"`
-	UserID                 string  `json:"id"`
+	TransactionID          int     `json:"transaction_id"`
+	UserID                 string  `json:"user_id"`
 	TransactionAmount      float32 `json:"transactionAmount"`
 	TransactionName        string  `json:"transactionName"`
 	TransactionDescription string  `json:"transactionDescription"`
+	TransactionCategory    string  `json:"transactionCategory"`
+}
+
+type Debt struct {
+	DebtID            int     `json:"debtID"`
+	UserID            string  `json:"user_id"`
+	TotalOwing        float32 `json:"total_owing"`
+	TotalDebtPayments float32 `json:"total_payments"`
+}
+type DebtPayment struct {
+	PaymentID     int `json:"payment_id"`
+	TransactionID int `json:"transaction_id"`
+}
+
+type Category struct {
+	TransactionCategory string `json:"transactionCategory"`
+	Username            string `json:"username"`
 }
 
 type Account struct {
@@ -138,11 +158,50 @@ func (t *Transaction) GetUserBalance(email string) (float32, error) {
 	return totalBalance, nil
 }
 
-func (t *Transaction) UpdateBalance(username string, transactionAmount float32, transactionName string, transactionDescription string) (float32, error) {
+func (t *Transaction) UpdateTransactionCategory(username string, transactionID int, category string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
-	query := `insert into mrkrabs.Transactions (Username, TransactionAmount, TransactionName, TransactionDescription) values
-	($1,$2,$3,$4)`
+	query := `
+	update mrkrabs.transactions
+	set category = $1
+	where transactionid = $2 and username = $3
+	`
+	_, err := db.QueryContext(ctx, query, category, transactionID, username)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *Transaction) GetAllCategories(username string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `
+	select distinct category from mrkrabs.transactions
+  where username = $1
+	`
+
+	var categories []string
+
+	rows, err := db.QueryContext(ctx, query, username)
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return categories, nil
+		}
+		categories = append(categories, s)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return categories, nil
+}
+
+func (t *Transaction) UpdateBalance(username string, transactionAmount float32, transactionName string, transactionDescription string, transactionCategory string) (float32, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `insert into mrkrabs.Transactions (Username, TransactionAmount, TransactionName, TransactionDescription, Category) values
+	($1,$2,$3,$4,$5)`
 
 	balance, err := t.GetUserBalance(username)
 	if err != nil && err.Error() != "sql: no rows in result set" {
@@ -152,18 +211,41 @@ func (t *Transaction) UpdateBalance(username string, transactionAmount float32, 
 		return 0, errors.New("error. can not decrement balance below zero")
 	}
 
-	_, err = db.ExecContext(ctx, query, username, transactionAmount, transactionName, transactionDescription)
+	_, err = db.ExecContext(ctx, query, username, transactionAmount, transactionName, transactionDescription, transactionCategory)
 	if err != nil {
 		return 0, err
 	}
 
 	return balance + transactionAmount, nil
 }
+func (t *Transaction) GetAllTransactionsOfCategory(username, category string) ([]Transaction, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `select TransactionID, username, transactionamount, transactionname, transactiondescription, category from mrkrabs.Transactions where Username = $1 and category = $2`
 
+	rows, err := db.QueryContext(ctx, query, username, category)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var transactions []Transaction
+	for rows.Next() {
+		var trans Transaction
+		if err := rows.Scan(&trans.TransactionID, &trans.UserID, &trans.TransactionAmount, &trans.TransactionName, &trans.TransactionDescription, &trans.TransactionCategory); err != nil {
+			return transactions, err
+		}
+		transactions = append(transactions, trans)
+	}
+	if err = rows.Err(); err != nil {
+		return transactions, err
+	}
+	return transactions, nil
+}
 func (t *Transaction) GetAllTransactions(username string) ([]Transaction, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
-	query := `select TransactionID, username, transactionamount, transactionname, transactiondescription from mrkrabs.Transactions where Username = $1`
+	query := `select TransactionID, username, transactionamount, transactionname, transactiondescription, category from mrkrabs.Transactions where Username = $1`
 
 	rows, err := db.QueryContext(ctx, query, username)
 	if err != nil {
@@ -174,7 +256,7 @@ func (t *Transaction) GetAllTransactions(username string) ([]Transaction, error)
 	var transactions []Transaction
 	for rows.Next() {
 		var trans Transaction
-		if err := rows.Scan(&trans.TransactionID, &trans.UserID, &trans.TransactionAmount, &trans.TransactionName, &trans.TransactionDescription); err != nil {
+		if err := rows.Scan(&trans.TransactionID, &trans.UserID, &trans.TransactionAmount, &trans.TransactionName, &trans.TransactionDescription, &trans.TransactionCategory); err != nil {
 			return transactions, err
 		}
 		transactions = append(transactions, trans)
@@ -280,4 +362,141 @@ func (t *PaymentHistory) GetPaymentHistory(paymentID int) ([]PaymentHistory, err
 		return payments, err
 	}
 	return payments, nil
+}
+func (d *Debt) GetAllDebts(userID string) ([]Debt, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `
+	SELECT
+  Debt.DebtID,
+  Debt.UserID,
+  Debt.TotalOwing,
+  COALESCE(SUM(transactions.TransactionAmount), 0) * -1 AS TotalDebtPayments
+FROM
+  mrkrabs.Debt
+  LEFT JOIN mrkrabs.DebtPayment
+    ON Debt.DebtID = DebtPayment.DebtID
+  LEFT JOIN mrkrabs.transactions
+    ON DebtPayment.TransactionID = transactions.TransactionID
+WHERE
+  Debt.UserID = $1
+GROUP BY
+  Debt.DebtID,
+  Debt.UserID,
+  Debt.TotalOwing;`
+	rows, err := db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var debts []Debt
+	for rows.Next() {
+		var debt Debt
+		if err := rows.Scan(&debt.DebtID, &debt.UserID, &debt.TotalOwing, &debt.TotalDebtPayments); err != nil {
+			return debts, err
+		}
+		debts = append(debts, debt)
+	}
+	if err = rows.Err(); err != nil {
+		return debts, err
+	}
+	return debts, nil
+}
+func (d *Debt) CreateDebt(userID string, totalOwing float32) (int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `INSERT INTO mrkrabs.Debt (UserID, TotalOwing)
+	VALUES ($1, $2)
+	RETURNING DebtID;
+	`
+
+	var debtID int
+
+	row := db.QueryRowContext(ctx, query, userID, totalOwing)
+	err := row.Scan(&debtID)
+	if err != nil {
+		return -1, err
+	}
+	return debtID, nil
+}
+
+func (d *Debt) GetDebtByID(debtID int, userID string) (Debt, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `
+	SELECT
+  Debt.DebtID,
+  Debt.UserID,
+  Debt.TotalOwing,
+  COALESCE(SUM(transactions.TransactionAmount), 0) * -1 AS TotalDebtPayments
+FROM
+  mrkrabs.Debt
+  LEFT JOIN mrkrabs.DebtPayment
+    ON Debt.DebtID = DebtPayment.DebtID
+  LEFT JOIN mrkrabs.transactions
+    ON DebtPayment.TransactionID = transactions.TransactionID
+WHERE
+  Debt.DebtID = $1
+	AND Debt.UserID = $2
+GROUP BY
+  Debt.DebtID,
+  Debt.UserID,
+  Debt.TotalOwing;`
+
+	var debt Debt
+	row := db.QueryRowContext(ctx, query, debtID, userID)
+	err := row.Scan(&debt.DebtID, &debt.UserID, &debt.TotalOwing, &debt.TotalDebtPayments)
+	if err != nil {
+		return debt, err
+	}
+
+	return debt, nil
+}
+func (d *Debt) MakeDebtPayment(userID string, debtID int, amount float32) (Debt, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	if amount > 0 {
+		amount = amount * -1
+	}
+	fmt.Sprintf("amt:", amount)
+	var t *Transaction
+	var debt Debt
+	var transactionID int
+
+	// check if debt exists
+	debt, err := d.GetDebtByID(debtID, userID)
+	if err != nil {
+		return debt, err
+	}
+
+	// create transaction
+	query := `insert into mrkrabs.Transactions (Username, TransactionAmount, TransactionName, TransactionDescription, Category) values
+	($1,$2,$3,$4,$5)
+	RETURNING TransactionID`
+	balance, err := t.GetUserBalance(userID)
+	if err != nil && err.Error() != "sql: no rows in result set" {
+		return debt, err
+	}
+	if (balance + amount) < 0 {
+		return debt, errors.New("error. can not decrement balance below zero")
+	}
+	row := db.QueryRowContext(ctx, query, userID, amount, fmt.Sprintf("balance payment for debt %d", debtID), "", "Debt")
+	err = row.Scan(&transactionID)
+	if err != nil {
+		return debt, err
+	}
+
+	// insert transaction with debt
+	query = `insert into mrkrabs.DebtPayment (TransactionID, DebtID)
+	values ($1,$2)`
+	_, err = db.QueryContext(ctx, query, transactionID, debtID)
+	if err != nil {
+		return debt, err
+	}
+
+	debt, err = d.GetDebtByID(debtID, userID)
+	if err != nil {
+		return debt, err
+	}
+	return debt, nil
 }
