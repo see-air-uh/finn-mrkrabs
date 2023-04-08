@@ -29,6 +29,9 @@ func (app *Config) routes() http.Handler {
 	mux.Get("/recurring/{user}", app.GetReccurringPayments)
 	mux.Post("/recurring/add/{user}", app.AddReccurringPayment)
 	mux.Get("/recurring/history/{user}", app.GetPaymentHistory)
+	mux.Get("/accounts/{user}", app.GetUserAccounts)
+	mux.Post("/accounts/add/{user}/{account}", app.AddAccount)
+	mux.Post("/accounts/add_user/{user}/{account}/{user2}", app.AddUserToAccount)
 
 	return mux
 }

@@ -150,3 +150,57 @@ func (app *Config) GetPaymentHistory(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusAccepted, payload)
 
 }
+
+func (app *Config) GetUserAccounts(w http.ResponseWriter, r *http.Request) {
+	u := chi.URLParam(r, "user")
+
+	accounts, err := app.Models.Account.GetUserAccounts(u)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	payload := jsonResponse{
+		Error:   false,
+		Message: fmt.Sprintf("Retrieved accounts for user %s", u),
+		Data:    accounts,
+	}
+	app.writeJSON(w, http.StatusAccepted, payload)
+}
+
+func (app *Config) AddAccount(w http.ResponseWriter, r *http.Request) {
+	u := chi.URLParam(r, "user")
+	account := chi.URLParam(r, "account")
+
+	accounts, err := app.Models.Account.AddAccount(u, account)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	payload := jsonResponse{
+		Error:   false,
+		Message: fmt.Sprintf("Added account for user %s", u),
+		Data:    accounts,
+	}
+	app.writeJSON(w, http.StatusAccepted, payload)
+}
+
+func (app *Config) AddUserToAccount(w http.ResponseWriter, r *http.Request) {
+	u := chi.URLParam(r, "user")
+	account := chi.URLParam(r, "account")
+	u2 := chi.URLParam(r, "user2")
+
+	accounts, err := app.Models.Account.AddUserToAccount(u2, account)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	payload := jsonResponse{
+		Error:   false,
+		Message: fmt.Sprintf("Added user to account for user %s", u),
+		Data:    accounts,
+	}
+	app.writeJSON(w, http.StatusAccepted, payload)
+}

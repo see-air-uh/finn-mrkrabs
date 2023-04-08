@@ -26,6 +26,7 @@ type Models struct {
 	Transaction      Transaction
 	RecurringPayment RecurringPayment
 	PaymentHistory   PaymentHistory
+	Account          Account
 }
 
 type Transaction struct {
@@ -34,6 +35,13 @@ type Transaction struct {
 	TransactionAmount      float32 `json:"transactionAmount"`
 	TransactionName        string  `json:"transactionName"`
 	TransactionDescription string  `json:"transactionDescription"`
+}
+
+type Account struct {
+	AccountID   int    `json:"id"`
+	AccountName string `json:"accountname"`
+	Email       string `json:"email"`
+	IsPrimary   bool   `json:"isprimary"`
 }
 
 type RecurringPayment struct {
@@ -50,6 +58,65 @@ type PaymentHistory struct {
 	PaymentID            int    `json:"paymentID"`
 	PaymentHistoryDate   string `json:"paymentHistoryDate"`
 	PaymentHistoryStatus bool   `json:"paymentHistoryStatus"`
+}
+
+func (t *Account) GetUserAccounts(email string) ([]Account, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `SELECT *
+				FROM mrkrabs.Account WHERE email = $1`
+
+	rows, err := db.QueryContext(ctx, query, email)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var accounts []Account
+
+	for rows.Next() {
+		var account Account
+		if err := rows.Scan(&account.AccountID, &account.AccountName, &account.Email, &account.IsPrimary); err != nil {
+			return accounts, err
+		}
+		accounts = append(accounts, account)
+	}
+	if err = rows.Err(); err != nil {
+		return accounts, err
+	}
+	return accounts, nil
+}
+
+func (t *Account) AddAccount(email string, account_name string) (float32, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `INSERT INTO mrkrabs.Account (
+		accountname, email, isprimary)
+		VALUES ($1, $2, $3);`
+
+	_, err := db.ExecContext(ctx, query, account_name, email, true)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return 1, err
+}
+
+func (t *Account) AddUserToAccount(email string, account_name string) (float32, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	query := `INSERT INTO mrkrabs.Account (
+		accountname, email, isprimary)
+		VALUES ($1, $2, $3);`
+
+	_, err := db.ExecContext(ctx, query, account_name, email, false)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return 1, err
 }
 
 func (t *Transaction) GetUserBalance(email string) (float32, error) {
