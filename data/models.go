@@ -65,7 +65,7 @@ type Account struct {
 }
 
 type RecurringPayment struct {
-	PaymentID          int     `json:"-"`
+	PaymentID          int     `json:"paymentid"`
 	UserName           string  `json:"username"`
 	PaymentAmount      float32 `json:"amount"`
 	PaymentName        string  `json:"paymentName"`
@@ -75,7 +75,7 @@ type RecurringPayment struct {
 }
 
 type PaymentHistory struct {
-	PaymentHistoryID     int    `json:"-"`
+	PaymentHistoryID     int    `json:"paymenthistoryid"`
 	PaymentID            int    `json:"paymentID"`
 	PaymentHistoryDate   string `json:"paymentHistoryDate"`
 	PaymentHistoryStatus bool   `json:"paymentHistoryStatus"`

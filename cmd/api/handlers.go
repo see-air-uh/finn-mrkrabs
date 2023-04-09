@@ -194,11 +194,16 @@ func (app *Config) AddReccurringPayment(w http.ResponseWriter, r *http.Request) 
 
 func (app *Config) GetPaymentHistory(w http.ResponseWriter, r *http.Request) {
 	u := chi.URLParam(r, "user")
-	var requestPayload struct {
-		PaymentID int `json:"paymentID"`
+	r_id := chi.URLParam(r, "recurring_id")
+
+	recurring_id, err := strconv.Atoi(r_id)
+
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
 	}
 
-	transactions, err := app.Models.PaymentHistory.GetPaymentHistory(requestPayload.PaymentID)
+	transactions, err := app.Models.PaymentHistory.GetPaymentHistory(recurring_id)
 	if err != nil {
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
