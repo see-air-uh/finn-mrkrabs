@@ -483,12 +483,13 @@ func (d *Debt) MakeDebtPayment(userID string, account string, debtID int, amount
 
 	// create transaction
 	query := `insert into mrkrabs.Transactions (Username, AccountName, TransactionAmount, TransactionName, TransactionDescription, Category) values
-	($1,$2,$3,$4,$5)
+	($1,$2,$3,$4,$5,$6)
 	RETURNING TransactionID`
-	balance, err := t.GetUserBalance(userID, "Primary")
+	balance, err := t.GetUserBalance(userID, account)
 	if err != nil && err.Error() != "sql: no rows in result set" {
 		return debt, err
 	}
+	log.Println(balance)
 	if (balance + amount) < 0 {
 		return debt, errors.New("error. can not decrement balance below zero")
 	}
