@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 
 	// "errors"
 
@@ -46,6 +47,7 @@ type Debt struct {
 	UserID            string  `json:"user_id"`
 	TotalOwing        float32 `json:"total_owing"`
 	TotalDebtPayments float32 `json:"total_payments"`
+	Name string `json:"name"`
 }
 type DebtPayment struct {
 	PaymentID     int `json:"payment_id"`
@@ -372,7 +374,8 @@ func (d *Debt) GetAllDebts(userID string, account string) ([]Debt, error) {
   Debt.DebtID,
   Debt.UserID,
   Debt.TotalOwing,
-  COALESCE(SUM(transactions.TransactionAmount), 0) * -1 AS TotalDebtPayments
+  COALESCE(SUM(transactions.TransactionAmount), 0) * -1 AS TotalDebtPayments,
+  Debt.Name
 FROM
   mrkrabs.Debt
   LEFT JOIN mrkrabs.DebtPayment
@@ -385,36 +388,40 @@ WHERE
 GROUP BY
   Debt.DebtID,
   Debt.UserID,
-  Debt.TotalOwing;`
+  Debt.TotalOwing,
+  Debt.Name;`
 	rows, err := db.QueryContext(ctx, query, userID, account)
 	if err != nil {
+	log.Println("Here")
+
 		return nil, err
 	}
 	defer rows.Close()
 	var debts []Debt
 	for rows.Next() {
 		var debt Debt
-		if err := rows.Scan(&debt.DebtID, &debt.UserID, &debt.TotalOwing, &debt.TotalDebtPayments); err != nil {
+		if err := rows.Scan(&debt.DebtID, &debt.UserID, &debt.TotalOwing, &debt.TotalDebtPayments, &debt.Name); err != nil {
 			return debts, err
 		}
 		debts = append(debts, debt)
 	}
 	if err = rows.Err(); err != nil {
+	log.Println("There")
 		return debts, err
 	}
 	return debts, nil
 }
-func (d *Debt) CreateDebt(userID string, account string, totalOwing float32) (int, error) {
+func (d *Debt) CreateDebt(userID string, account string, totalOwing float32, name string) (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
-	query := `INSERT INTO mrkrabs.Debt (UserID, AccountName, TotalOwing)
-	VALUES ($1, $2, $3)
+	query := `INSERT INTO mrkrabs.Debt (UserID, AccountName, TotalOwing, Name)
+	VALUES ($1, $2, $3, $4)
 	RETURNING DebtID;
 	`
 
 	var debtID int
 
-	row := db.QueryRowContext(ctx, query, userID, account, totalOwing)
+	row := db.QueryRowContext(ctx, query, userID, account, totalOwing, name)
 	err := row.Scan(&debtID)
 	if err != nil {
 		return -1, err
@@ -430,7 +437,8 @@ func (d *Debt) GetDebtByID(debtID int, userID string, account string) (Debt, err
   Debt.DebtID,
   Debt.UserID,
   Debt.TotalOwing,
-  COALESCE(SUM(transactions.TransactionAmount), 0) * -1 AS TotalDebtPayments
+  COALESCE(SUM(transactions.TransactionAmount), 0) * -1 AS TotalDebtPayments,
+	Debt.Name
 FROM
   mrkrabs.Debt
   LEFT JOIN mrkrabs.DebtPayment
@@ -444,11 +452,12 @@ WHERE
 GROUP BY
   Debt.DebtID,
   Debt.UserID,
-  Debt.TotalOwing;`
+  Debt.TotalOwing,
+	Debt.Name;`
 
 	var debt Debt
 	row := db.QueryRowContext(ctx, query, debtID, userID, account)
-	err := row.Scan(&debt.DebtID, &debt.UserID, &debt.TotalOwing, &debt.TotalDebtPayments)
+	err := row.Scan(&debt.DebtID, &debt.UserID, &debt.TotalOwing, &debt.TotalDebtPayments, &debt.Name)
 	if err != nil {
 		return debt, err
 	}

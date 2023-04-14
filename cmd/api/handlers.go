@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -52,6 +53,7 @@ func (app *Config) UpdateTransactionCategory(w http.ResponseWriter, r *http.Requ
 	})
 }
 func (app *Config) GetCategories(w http.ResponseWriter, r *http.Request) {
+	log.Println("Got categories")
 	u := chi.URLParam(r, "user")
 	account := chi.URLParam(r, "account")
 	categories, err := app.Models.Transaction.GetAllCategories(u, account)
@@ -59,7 +61,7 @@ func (app *Config) GetCategories(w http.ResponseWriter, r *http.Request) {
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
 	}
-
+	log.Println("Got categories")
 	app.writeJSON(w, http.StatusAccepted, jsonResponse{
 		Error:   false,
 		Message: fmt.Sprintf("successfully grabbed all categories for %s", u),
@@ -235,9 +237,9 @@ func (app *Config) GetUserAccounts(w http.ResponseWriter, r *http.Request) {
 func (app *Config) GetAllDebts(w http.ResponseWriter, r *http.Request) {
 	u := chi.URLParam(r, "user")
 	account := chi.URLParam(r, "account")
-
 	debts, err := app.Models.Debt.GetAllDebts(u, account)
 	if err != nil {
+
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
 	}
@@ -254,13 +256,14 @@ func (app *Config) CreateDebt(w http.ResponseWriter, r *http.Request) {
 	account := chi.URLParam(r, "account")
 	var debtPayload struct {
 		TotalOwing float32 `json:"total_owing"`
+		Name string `json:"name"`
 	}
 	err := app.readJSON(w, r, &debtPayload)
 	if err != nil {
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
 	}
-	debt, err := app.Models.Debt.CreateDebt(u, account, debtPayload.TotalOwing)
+	debt, err := app.Models.Debt.CreateDebt(u, account, debtPayload.TotalOwing, debtPayload.Name)
 	if err != nil {
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
