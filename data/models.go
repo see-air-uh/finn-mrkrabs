@@ -72,6 +72,8 @@ type RecurringPayment struct {
 	PaymentDescription string  `json:"paymentDescription"`
 	PaymentDate        string  `json:"paymentDate"`
 	PaymentType        string  `json:"paymentType"`
+	PaymentFrequency   string  `json:"paymentFrequency"`
+	NextPaymentDate    string  `json:"nextPaymentDate"`
 }
 
 type PaymentHistory struct {
@@ -271,7 +273,7 @@ func (t *Transaction) GetAllTransactions(username string, account string) ([]Tra
 func (t *RecurringPayment) GetAllReccurringPayments() ([]RecurringPayment, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
-	query := `SELECT paymentid, username, paymentamount, paymentname, paymentdescription, paymentdate
+	query := `SELECT paymentid, username, paymentamount, paymentname, paymentdescription, paymentdate, paymentfrequency, nextpaymentdate
 	FROM foreman.recurring_payment`
 
 	rows, err := db.QueryContext(ctx, query)
@@ -298,7 +300,7 @@ func (t *RecurringPayment) GetAllReccurringPayments() ([]RecurringPayment, error
 func (t *RecurringPayment) GetReccurringPayments(username string, account string) ([]RecurringPayment, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
-	query := `SELECT paymentid, username, paymentamount, paymentname, paymentdescription, paymentdate, paymenttype
+	query := `SELECT paymentid, username, paymentamount, paymentname, paymentdescription, paymentdate, paymenttype, paymentfrequency, nextpaymentdate
 	FROM foreman.recurring_payment WHERE username = $1 and accountname = $2`
 
 	rows, err := db.QueryContext(ctx, query, username, account)
@@ -311,7 +313,7 @@ func (t *RecurringPayment) GetReccurringPayments(username string, account string
 
 	for rows.Next() {
 		var recurring RecurringPayment
-		if err := rows.Scan(&recurring.PaymentID, &recurring.UserName, &recurring.PaymentAmount, &recurring.PaymentName, &recurring.PaymentDescription, &recurring.PaymentDate, &recurring.PaymentType); err != nil {
+		if err := rows.Scan(&recurring.PaymentID, &recurring.UserName, &recurring.PaymentAmount, &recurring.PaymentName, &recurring.PaymentDescription, &recurring.PaymentDate, &recurring.PaymentType, &recurring.PaymentFrequency, &recurring.NextPaymentDate); err != nil {
 			return recurring_payments, err
 		}
 		recurring_payments = append(recurring_payments, recurring)
@@ -322,14 +324,29 @@ func (t *RecurringPayment) GetReccurringPayments(username string, account string
 	return recurring_payments, nil
 }
 
-func (t *RecurringPayment) AddReccurringPayment(username string, account string, paymentAmount float32, paymentName string, paymentDescription string, paymentDate string, paymentType string) (float32, error) {
+func (t *RecurringPayment) AddReccurringPayment(username string, account string, paymentAmount float32, paymentName string, paymentDescription string, paymentDate string, paymentType string, paymentFrequency string) (float32, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 	query := `INSERT INTO foreman.recurring_payment(
-		username, accountname, paymentamount, paymentname, paymentdescription, paymentdate, paymenttype)
-		VALUES ($1, $2, $3, $4, $5, $6, $7);`
+		username, accountname, paymentamount, paymentname, paymentdescription, paymentdate, paymenttype, paymentfrequency, nextpaymentdate)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`
 
-	_, err := db.ExecContext(ctx, query, username, account, paymentAmount, paymentName, paymentDescription, paymentDate, paymentType)
+	next_payment := ""
+
+	tt, err := time.Parse("2006-01-02", paymentDate)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	if paymentFrequency == "daily" {
+		next_payment = tt.AddDate(0, 0, 1).Format("2006-01-02")
+	} else if paymentFrequency == "bi-weekly" {
+		next_payment = tt.AddDate(0, 0, 14).Format("2006-01-02")
+	} else if paymentFrequency == "monthly" {
+		next_payment = tt.AddDate(0, 1, 0).Format("2006-01-02")
+	}
+
+	_, err = db.ExecContext(ctx, query, username, account, paymentAmount, paymentName, paymentDescription, paymentDate, paymentType, paymentFrequency, next_payment)
 
 	if err != nil {
 		return 0, err

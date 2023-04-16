@@ -173,13 +173,14 @@ func (app *Config) AddReccurringPayment(w http.ResponseWriter, r *http.Request) 
 		PaymentDescription string  `json:"paymentDescription"`
 		PaymentDate        string  `json:"paymentDate"`
 		PaymentType        string  `json:"paymentType"`
+		PaymentFrequency   string  `json:"paymentFrequency"`
 	}
 	err := app.readJSON(w, r, &requestPayload)
 	if err != nil {
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
 	}
-	balance, err := app.Models.RecurringPayment.AddReccurringPayment(u, account, requestPayload.PaymentAmount, requestPayload.PaymentName, requestPayload.PaymentDescription, requestPayload.PaymentDate, requestPayload.PaymentType)
+	balance, err := app.Models.RecurringPayment.AddReccurringPayment(u, account, requestPayload.PaymentAmount, requestPayload.PaymentName, requestPayload.PaymentDescription, requestPayload.PaymentDate, requestPayload.PaymentType, requestPayload.PaymentFrequency)
 	if err != nil {
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
